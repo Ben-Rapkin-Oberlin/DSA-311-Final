@@ -1,0 +1,766 @@
+---
+title: "DSA311_Project_v4"
+output: html_document
+date: "2024-03-19"
+---
+
+## Loading data 
+```{r setup, include=FALSE}
+# Basic data cleaning and visualization packages
+#Currently using PC12 out of PC15, 90% explained
+X <-12
+
+# install.packages("tidyverse")
+# install.packages("ggplot2")
+# install.packages("plyr")
+# install.packages("pls")
+# 
+# 
+ library(tidyverse)
+ library(ggplot2)
+ library(plyr )
+ library(pls) # Load the pls package for PLS analysis
+set.seed(123)
+
+data <- read.csv("heart_disease.csv", stringsAsFactors = TRUE)
+data <- data[complete.cases(data), ]
+#rowSums(is.na(data))
+nrow(data)
+
+
+data <- data %>%
+  mutate(
+    sex = factor(sex, 
+                labels = unique(data$sex)),
+    cp = factor(cp, 
+                labels = unique(data$cp)),
+    fbs = factor(fbs, 
+                labels = unique(data$fbs)),
+    restecg = factor(restecg, 
+                labels = unique(data$restecg)),
+    exang = factor(exang, 
+                labels = unique(data$exang)),
+    age = scale(age),
+    trestbps = scale(trestbps),
+    chol = scale(chol),
+    thalach = scale(thalach),
+    oldpeak = scale(oldpeak),
+    
+  )
+
+
+raw_data <- read.csv("heart_disease.csv", stringsAsFactors = TRUE)
+raw_data <- raw_data[complete.cases(raw_data), ]
+#rowSums(is.na(data))
+head(raw_data)
+nrow(raw_data)
+summary(raw_data)
+raw_data <- raw_data %>%
+  mutate(
+    sex = factor(sex, 
+                labels = unique(raw_data$sex)),
+    cp = factor(cp, 
+                labels = unique(raw_data$cp)),
+    fbs = factor(fbs, 
+                labels = unique(raw_data$fbs)),
+    restecg = factor(restecg, 
+                labels = unique(raw_data$restecg)),
+    exang = factor(exang, 
+                labels = unique(raw_data$exang)),
+    slope = factor(slope, 
+                labels = unique(raw_data$slope)),
+    ca = factor(ca, 
+                labels = unique(raw_data$ca)),
+    thal = factor(thal, 
+                labels = unique(raw_data$thal)),
+    
+    age = scale(age),
+    trestbps = scale(trestbps),
+    chol = scale(chol),
+    thalach = scale(thalach),
+    oldpeak = scale(oldpeak),
+    
+  )
+
+library(caret)
+#dummify the data
+dmy.raw <- dummyVars(" ~ .", data = raw_data)
+raw_data.1 <- data.frame(predict(dmy.raw, newdata = raw_data))
+raw_data.1[1,]
+drops.1=c('sex.0','cp.0','fbs.0','restecg.0','exang.0','slope.0','ca.0','thal.0')
+raw_data.1<- raw_data.1[ , !(names(raw_data.1) %in% drops.1)]
+
+#base data
+raw_data.1[1,]
+raw_data.old <- data.frame(raw_data.1)
+raw_data.1$num <- mapvalues(raw_data.1$num, from=c("0", "1", "2",'3','4'), to=c('Zero',"One", "Two", "Three",'Four'))
+raw_data.1$num <- mapvalues(raw_data.1$num, from=c('Zero',"One", "Two", "Three",'Four'), to=c('Zero',"One", "One", "One","One"))
+write.csv(raw_data.1, "Simple_Encoded_Raw.csv", row.names=FALSE)
+
+##==== unscaled data (fully dummified)
+
+library(caret)
+raw_unscaled_data <- read.csv("heart_disease.csv", stringsAsFactors = TRUE)
+raw_unscaled_data <- raw_unscaled_data[complete.cases(raw_unscaled_data), ]
+#rowSums(is.na(data))
+head(raw_unscaled_data)
+nrow(raw_unscaled_data)
+summary(raw_unscaled_data)
+raw_unscaled_data <- raw_unscaled_data %>%
+  mutate(
+    sex = factor(sex, 
+                labels = unique(raw_unscaled_data$sex)),
+    cp = factor(cp, 
+                labels = unique(raw_unscaled_data$cp)),
+    fbs = factor(fbs, 
+                labels = unique(raw_unscaled_data$fbs)),
+    restecg = factor(restecg, 
+                labels = unique(raw_unscaled_data$restecg)),
+    exang = factor(exang, 
+                labels = unique(raw_unscaled_data$exang)),
+    slope = factor(slope, 
+                labels = unique(raw_unscaled_data$slope)),
+    ca = factor(ca, 
+                labels = unique(raw_unscaled_data$ca)),
+    thal = factor(thal, 
+                labels = unique(raw_unscaled_data$thal)),
+    
+  )
+
+library(caret)
+#dummify the data
+dmy.unscaled.raw <- dummyVars(" ~ .", data = raw_unscaled_data)
+raw_unscaled_data.1 <- data.frame(predict(dmy.unscaled.raw , newdata = raw_unscaled_data))
+raw_unscaled_data.1[1,]
+drops.1=c('sex.0','cp.0','fbs.0','restecg.0','exang.0','slope.0','ca.0','thal.0')
+raw_unscaled_data.1<- raw_unscaled_data.1[ , !(names(raw_unscaled_data.1) %in% drops.1)]
+
+#base data
+raw_unscaled_data.1[1,]
+raw_unscaled_data.old <- data.frame(raw_unscaled_data.1)
+raw_unscaled_data.1$num <- mapvalues(raw_unscaled_data.1$num, from=c("0", "1", "2",'3','4'), to=c('Zero',"One", "Two", "Three",'Four'))
+raw_unscaled_data.1$num <- mapvalues(raw_unscaled_data.1$num, from=c('Zero',"One", "Two", "Three",'Four'), to=c('Zero',"One", "One", "One","One"))
+write.csv(raw_unscaled_data.1, "Simple_Encoded_Unscaled_Logit.csv", row.names=FALSE)
+
+
+
+
+
+#========================================================================================================
+
+
+library(caret)
+#dummify the data
+dmy <- dummyVars(" ~ .", data = data)
+data <- data.frame(predict(dmy, newdata = data))
+data[1,]
+drops=c('sex.0','cp.0','fbs.0','restecg.0','exang.0')
+data<- data[ , !(names(data) %in% drops)]
+
+#base data
+data[1,]
+data.old <- data.frame(data)
+data$num <- mapvalues(data$num, from=c("0", "1", "2",'3','4'), to=c('Zero',"One", "Two", "Three",'Four'))
+#data$num[1]
+#str(data)
+write.csv(data, "Encoded_Scaled.csv", row.names=FALSE)
+
+# Perform PCA
+numeric_cols <- sapply(data, is.numeric)
+numeric_data <- data[, numeric_cols]
+pca_result <- prcomp(numeric_data, scale. = TRUE)
+
+# Get the principal components
+pca_data <- data.frame(pca_result$x)
+pca_data <- pca_data[,1:12]
+#summary(pca_result)
+pca_data$num=data$num
+write.csv(pca_data, "pca_data.csv", row.names = FALSE)
+
+data$num <- mapvalues(data$num, from=c('Zero',"One", "Two", "Three",'Four'), to=c('Zero',"One", "One", "One","One"))
+write.csv(data, "Simple_Encoded_Scaled.csv", row.names=FALSE)
+
+pca_data$num=data$num
+write.csv(pca_data, "Simple_pca_data.csv", row.names = FALSE)
+
+length(data)
+
+```
+
+## Simple Data Visualization 
+```{r,}
+library(ggplot2)
+
+heart_data <- read.csv("heart_disease.csv", stringsAsFactors = TRUE)
+heart_data <- heart_data[complete.cases(heart_data), ]
+#rowSums(is.na(data))
+nrow(heart_data)
+attach(heart_data)
+heart_data <- heart_data %>% mutate(num = ifelse(heart_data$num == 0,"Zero","One"))
+head(heart_data)
+## num
+heart_data$age <- as.numeric(heart_data$age)
+heart_data$trestbps <- as.numeric(heart_data$trestbps)
+heart_data$chol <- as.numeric(heart_data$chol)
+heart_data$thalach <- as.numeric(heart_data$thalach)
+heart_data$oldpeak <- as.numeric(heart_data$oldpeak)
+
+
+## factors
+heart_data$sex <- as.factor(heart_data$sex)
+heart_data$cp <- as.factor(heart_data$cp)
+heart_data$fbs <- as.factor(heart_data$fbs)
+heart_data$restecg <- as.factor(heart_data$restecg)
+heart_data$exang <- as.factor(heart_data$exang)
+heart_data$slope <- as.factor(heart_data$slope)
+heart_data$ca <- as.factor(heart_data$ca)
+heart_data$thal <- as.factor(heart_data$thal)
+heart_data$num <- as.factor(heart_data$num)
+
+str(heart_data)
+
+
+theme_set(theme_gray(base_size = 25)) # set font size
+# Basic histogram (Categorical)
+ggplot(heart_data, aes(x=heart_data$thal)) + geom_histogram(stat="count")
+ggplot(heart_data, aes(x=heart_data$num)) + geom_histogram(stat="count")
+ggplot(heart_data, aes(x=heart_data$slope, color=num, fill=num)) + geom_histogram(stat="count")
+
+# Basic histogram (Continuous)
+ggplot(heart_data, aes(x=age)) + geom_histogram()
+ggplot(heart_data, aes(x=trestbps)) + geom_histogram()
+ggplot(heart_data, aes(x=chol)) + geom_histogram()
+ggplot(heart_data, aes(x=thalach)) + geom_histogram()
+ggplot(heart_data, aes(x=oldpeak)) + geom_histogram()
+
+# color by diagnosis
+ggplot(heart_data, aes(x=thalach,color=num)) + geom_histogram()
+
+# fill by diagnosis
+ggplot(heart_data, aes(x=thalach,color=num, fill=num)) + geom_histogram()
+ggplot(heart_data, aes(x=oldpeak,color=num, fill=num)) + geom_histogram()
+
+# add density
+ggplot(heart_data, aes(x=thalach,color=num, fill=num)) +
+geom_histogram(aes(y=..density..), alpha=0.2)+
+geom_density(alpha=.2) # alpha controls transparency
+
+# add mean line
+ggplot(heart_data, aes(x=thalach,color=num, fill=num)) + geom_histogram(aes(y=..density..), alpha=0.2)+
+geom_density(alpha=.2) +
+geom_vline(aes(xintercept=mean(thalach)), color="dodgerblue4",
+linetype="dashed" )
+
+
+ggplot(heart_data, aes(y = age , x =thalach )) + geom_point(size=5)
+
+### Useful for visualization before LDA and QDA
+ggplot(heart_data, aes(y = age , x =oldpeak )) + 
+  geom_point(aes(shape=num, col = num), size=2)
+
+ggplot(heart_data, aes(y = age , x =trestbps )) +
+geom_point(aes(shape=num, col = num), size=2)
+
+ggplot(heart_data, aes(y = age , x =chol )) +
+geom_point(aes(shape=num, col = num), size=2)
+
+ggplot(heart_data, aes(y = age , x =thalach )) +
+geom_point(aes(shape=num, col = num), size=2)
+
+ggplot(heart_data, aes(y = trestbps , x =oldpeak )) +
+geom_point(aes(shape=num, col = num), size=2)
+
+ggplot(heart_data, aes(y = trestbps , x = thalach )) +
+geom_point(aes(shape=num, col = num), size=2)
+
+ggplot(heart_data, aes(y = trestbps , x = chol )) +
+geom_point(aes(shape=num, col = num), size=2)
+
+## Likely LDA and QDA will yield poor results
+
+# ggplot(heart_data, aes(y = age , x =age )) +
+# geom_point(aes(shape=num, col = diagnosis), size =5) +
+# geom_abline(intercept = 57, slope = -2.5, color="dodgerblue4", linetype="dashed")
+
+
+```
+## Logistic Regression 
+```{r,}
+##====================== Determining the order for best subset logistic regression 
+library(BeSS)
+set.seed(123)
+
+train <- sample(1:nrow(heart_data), nrow(heart_data)*0.8)
+
+heart.train <- heart_data[train,]
+y.train <- heart_data$num[train]
+heart.test <- heart_data[-train,] 
+y.test <- heart_data$num[-train]
+
+
+head(heart.train)
+
+x <- model.matrix(num~., data=heart.train)[,-1] 
+y <- y.train
+
+
+fit2 <- bess(x, y, s.list=1:11 ,method = "sequential", family = "binomial",epsilon = 0)
+print(fit2)
+coef(fit2, sparse = TRUE)
+bestmodel <- fit2$bestmodel
+summary(bestmodel)
+
+##====================== Best Subset Logistic Regression (Unscaled)
+
+
+encoded_unscaled.data <- read.csv("Simple_Encoded_Unscaled_Logit.csv", stringsAsFactors = TRUE)
+attach(encoded_unscaled.data )
+head(encoded_unscaled.data)
+
+train.encoded.unscaled <- sample(1:nrow(encoded_unscaled.data ), nrow(encoded_unscaled.data )*0.8)
+
+encoded.unscaled.train <- encoded_unscaled.data[train.encoded.unscaled ,]
+encoded.unscaled.y.train <- encoded_unscaled.data$num[train.encoded.unscaled ]
+encoded.unscaled.test <- encoded_unscaled.data[-train.encoded.unscaled ,] 
+encoded.unscaled.y.test <- encoded_unscaled.data$num[-train.encoded.unscaled ]
+
+set.seed(123)
+
+glm.unscaled.def4 <- glm(num~ sex.1 + cp.2 + cp.4 + trestbps + exang.1 + oldpeak + slope.2 + ca.1 + ca.2 +ca.3 + thal.7, data=encoded.unscaled.train, family=binomial)
+summary(glm.unscaled.def4)
+
+prob.unscaled = predict(glm.unscaled.def4,type=c("response"),encoded.unscaled.test) # find predicted probabilities
+encoded.unscaled.test$prob = prob.unscaled #add predicted probabilities to dataframe
+
+library(pROC)
+ROC_unscaled = roc(encoded.unscaled.test$num=="One" ~ prob.unscaled, data = encoded.unscaled.test)
+plot(ROC_unscaled,print.thres=c(0.25,0.41,0.53,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+auc.unscaled <- plot(ROC_unscaled,print.thres=c(0.25,0.41,0.53,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+
+confusion.unscaled <- confusionMatrix(factor(prob.unscaled<0.53), factor(encoded.unscaled.test$num=="One"), positive="TRUE")
+
+
+##====================== Best Subset Logistic Regression (Scaled)
+
+encoded_raw.data <- read.csv("Simple_Encoded_Raw.csv", stringsAsFactors = TRUE)
+attach(encoded_raw.data )
+head(encoded_raw.data)
+
+train.encoded.raw <- sample(1:nrow(encoded_raw.data ), nrow(encoded_raw.data )*0.8)
+
+encoded.raw.train <- encoded_raw.data[train.encoded.raw ,]
+encoded.raw.y.train <- encoded_raw.data$num[train.encoded.raw ]
+encoded.raw.test <- encoded_raw.data[-train.encoded.raw ,] 
+encoded.raw.y.test <- encoded_raw.data$num[-train.encoded.raw ]
+
+set.seed(123)
+
+glm.raw.def4 <- glm(num~ sex.1 + cp.2 + cp.4 + trestbps + exang.1 + oldpeak + slope.2 + ca.1 + ca.2 +ca.3 + thal.7, data=encoded.raw.train, family=binomial)
+summary(glm.raw.def4)
+
+prob.raw = predict(glm.raw.def4,type=c("response"),encoded.raw.test) # find predicted probabilities
+encoded.raw.test$prob = prob.raw #add predicted probabilities to dataframe
+
+library(pROC)
+ROC_scaled = roc(encoded.raw.test$num=="One" ~ prob.raw, data = encoded.raw.test)
+plot(ROC_scaled,print.thres=c(0.25,0.41,0.53,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+auc.scaled <- plot(ROC_scaled,print.thres=c(0.25,0.41,0.53,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+
+confusion.scaled <- confusionMatrix(factor(prob.raw<0.53), factor(encoded.raw.test$num=="One"), positive="TRUE")
+
+
+library(car)
+
+vif_values = vif(glm.raw.def4)
+vif_values # values around 1 generally indicate collinearity is not found 
+
+
+
+## Trial and Error from 1 to 20 , 11 yields the lowest AIC
+# Variables are Sex, CP, trestbps, restecg2, thalach, exang1, oldpeak, slope, ca, thal
+
+
+###========================================================== Conventional Regression 
+
+set.seed(123)
+glm.def4 <- glm(num~ sex+ cp + trestbps+ exang + oldpeak+ slope+ ca+ thal, data=heart.train, family=binomial)
+summary(glm.def4)
+
+
+## The significant continuous variables are trestbps and oldpeak 
+
+prob = predict(glm.def4,type=c("response"),heart.test) # find predicted probabilities
+heart.test$prob = prob #add predicted probabilities to dataframe
+
+library(pROC)
+ROC = roc(heart.test$num=="One" ~ prob, data = heart.test)
+plot(ROC,print.thres=c(0.25,0.45,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+auc <- plot(ROC,print.thres=c(0.25,0.45,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+
+confusion.conventional <- confusionMatrix(factor(prob<0.45), factor(heart.test$num=="One"), positive="TRUE")
+
+
+# AUC is an effective way to summarize the overall diagnostic accuracy of the test. It takes values from 0 to 1, where a value of 0 indicates a perfectly inaccurate test and a value of 1 reflects a perfectly accurate test. AUC can be computed using the trapezoidal rule.3 In general, an AUC of 0.5 suggests no discrimination (i.e., ability to diagnose patients with and without the disease or condition based on the test), 0.7 to 0.8 is considered acceptable, 0.8 to 0.9 is considered excellent, and more than 0.9 is considered outstanding.
+
+#A large Mcnemar's Test p-value (typically greater than 0.05) indicates that there is no significant difference between the number of false positives and false negatives.
+
+## VIF
+# install.packages("car")
+library(car)
+
+vif_values = vif(glm.def4)
+vif_values # values around 1 generally indicate collinearity is not found 
+
+#Thus, you may apply standard rules of thumb on whether collinearity may be a problem, such as a 3, 5 or 10 threshold.
+
+
+## PCA Data
+
+pca.data <- read.csv("Simple_pca_data.csv", stringsAsFactors = TRUE)
+attach(pca.data)
+
+train.pca <- sample(1:nrow(pca.data), nrow(pca.data)*0.8)
+
+pca.train <- pca.data[train.pca,]
+pca.y.train <- pca.data$num[train.pca]
+pca.test <- pca.data[-train.pca,] 
+pca.y.test <- pca.data$num[-train.pca]
+
+set.seed(123)
+head(pca.train)
+
+glm.pca.def4 <- glm(num~ ., data=pca.train, family=binomial)
+summary(glm.pca.def4)
+
+prob.pca = predict(glm.pca.def4,type=c("response"),pca.test) # find predicted probabilities
+pca.test$prob = prob.pca #add predicted probabilities to dataframe
+
+library(pROC)
+ROC_pca = roc(pca.test$num=="One" ~ prob.pca, data = pca.test)
+plot(ROC_pca,print.thres=c(0.25,0.40,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+auc.pca <-plot(ROC_pca,print.thres=c(0.25,0.40,0.75),legacy.axes=F, print.auc = TRUE,col="Coral2")
+
+confusion.pca <- confusionMatrix(factor(prob.pca<0.40), factor(pca.test$num=="One"), positive="TRUE")
+
+### Return results
+
+auc.unscaled
+auc.scaled
+auc
+auc.pca
+
+confusion.unscaled
+confusion.scaled
+confusion.conventional
+confusion.pca
+
+
+
+```
+
+
+
+
+## Decision Tree
+
+```{r cars}
+## My working
+
+set.seed(123)
+train <- sample(1:nrow(heart_data), nrow(heart_data)*0.8)
+heart.train <- heart_data[train,] 
+heart.test <- heart_data[-train,] 
+library(tree) 
+heart.tree <- tree(heart.train$num~., data=heart.train)
+summary(heart.tree) ## retrieve training error 
+heart.tree 
+plot(heart.tree) 
+title(main="Classification tree analysis of heart data set") 
+text(heart.tree, pretty=0) 
+heart.pred <- predict(heart.tree, heart.test, type="class") 
+table1 <- table(heart.test$num, heart.pred) 
+table1 
+error <-(table1[1,2]+table1[2,1])/sum(table1) 
+error ## retrieve test error 
+
+confusionMatrix(heart.pred,heart.test$num)
+
+## Prune tree
+cv.heart <- cv.tree(heart.tree, FUN=prune.misclass) 
+nn <- cv.heart$size[which.min(cv.heart$dev)] 
+nn 
+heart.pruned <- prune.misclass(heart.tree, best=nn) 
+summary(heart.pruned)
+plot(heart.pruned) 
+title(main="Classification tree analysis of heart data set (pruned)") 
+text(heart.tree, pretty=0) 
+
+pred.pruned <- predict(heart.pruned, heart.test, type="class") 
+table.pruned <- table( heart.test$num, pred.pruned) 
+table.pruned 
+error.pruned <-(table.pruned[1,2]+table.pruned[2,1])/sum(table.pruned) 
+error.pruned
+
+kappa1 <- confusionMatrix(pred.pruned,heart.test$num)
+kappa1
+
+
+
+
+```
+
+## Random Forest
+
+```{r random Forest,}
+RNGkind(sample.kind = "Rounding")
+set.seed(123)
+train1 <- sample(1:nrow(heart_data), nrow(heart_data)*0.8)
+test1 <- -train1
+
+# # Random Forest using 1000 trees
+# rf.heart <- randomForest(num~., data=heart_data, ntree=1000,
+#                           subset=train1, mtry=4, importance=TRUE) ## default is 500 trees, set it to 1000 to create more trees
+# rf.heart  ## confusion matrix contains training error
+# plot(rf.heart)
+
+
+library(randomForest)
+##### Bagging, using heart data set
+bag.heart <- randomForest(num~., data=heart_data, 
+                           subset=train1, mtry=13, importance=TRUE) #using Bagging
+bag.heart ## confusion matrix contains training error
+yhat.bag <- predict(bag.heart, newdata=heart_data[test1,])                 # predicted value using Bagging for test sample
+heart.test1 <- heart_data[test1, "num"]                                   # observed value for test sample (recall Lab 10)
+plot(yhat.bag, heart.test1, main="Bagging procedure for heart data",
+      xlab="predicted value", ylab="observed value")
+abline(0,1)
+# mean((yhat.bag-heart.test1)^2)
+## Order is flipped for sensitivity and specificity
+confusionMatrix(yhat.bag,heart_data[test1, "num"] )
+
+importance(bag.heart)
+varImpPlot(bag.heart, main="Importance measure plot")
+
+##### Random Forests (## default is 500 trees, set it to 5000 to create more trees)
+rf.heart <- randomForest(num~., data=heart_data, ntree=5000,
+                           subset=train1, mtry=4, importance=TRUE)  # using the random forests
+rf.heart ## confusion matrix contains training error
+yhat.rf <- predict(rf.heart, newdata=heart_data[test1,])                   # predicted value using RF for test sample
+plot(yhat.rf, heart.test1, main="Random Forests procedure for heart data",
+     xlab="predicted value", ylab="observed value")
+abline(0,1)
+importance(rf.heart)
+varImpPlot(rf.heart, main="Importance measure plot (Random Forest)")
+
+## Order is flipped for sensitivity and specificity
+confusionMatrix(yhat.rf,heart_data[test1, "num"] )
+
+
++##This is a fundamental outcome of the random forest and it shows, for each variable, how important it is in classifying the data. The Mean Decrease Accuracy plot expresses how much accuracy the model losses by excluding each variable. The more the accuracy suffers, the more important the variable is for the successful classification. The variables are presented from descending importance. The mean decrease in Gini coefficient is a measure of how each variable contributes to the homogeneity of the nodes and leaves in the resulting random forest. The higher the value of mean decrease accuracy or mean decrease Gini score, the higher the importance of the variable in the model.
+```
+
+
+
+
+
+## Neural Network
+```{r,}
+library(dplyr)
+library(keras)
+set.seed(123)
+run_nn <- function(data_file) {
+  
+  data <-   data <- read.csv(data_file, stringsAsFactors = TRUE)
+  unique(data$num)
+  num_class<-n_distinct(data$num)
+  input<-ncol(data)-1
+  
+  if (num_class==5){
+    data$num <- mapvalues(data$num, from=c('Zero', "One", "Two", "Three", 'Four'), to=c(0, 1, 2, 3, 4))
+    # Prepare data
+    x <- model.matrix(num ~., data = data)[, -1]
+    y <- to_categorical(data$num, num_classes = 5)
+    #class_weight = list('0'=1,'1'=2,'2'=2,'3'=2,'4'=2)
+    loss <- 'categorical_crossentropy'
+    act <- 'elu'
+  }
+  else if (num_class==2){
+    data$num <- mapvalues(data$num, from=c('Zero', "One"), to=c(0, 1))
+    # Prepare data
+    x <- model.matrix(num ~., data = data)[, -1]
+    y <- to_categorical(data$num, num_classes = 2)
+    #class_weight = list('0'=1,'1'=2,'2'=2,'3'=2,'4'=2)
+    loss <- 'binary_crossentropy'
+    act <- 'relu'
+  }
+  else{
+    print('bad class count')
+    exit()
+  }
+  
+  k <- 10
+  folds <- createFolds(data$num, k = k, list = TRUE, returnTrain = TRUE)
+  
+  
+  accuracy_results <- numeric(k)
+  kappa_results <- numeric(k)
+  
+  for(i in seq_along(folds)) {
+    set.seed(1) # For reproducibility
+    tensorflow::set_random_seed(1)
+    #print('iter')
+    # Split data
+    train_indices <- folds[[i]]
+    test_indices <- setdiff(seq_len(nrow(data)), train_indices)
+    
+    x_train <- x[train_indices, ]
+    y_train <- y[train_indices, ]
+    x_test <- x[test_indices, ]
+    y_test <- y[test_indices, ]
+    # kernel_regularizer = regularizer_l1_l2(l1 = 0.01, l2 = 0.01)
+    model <- keras_model_sequential() %>%
+      layer_dense(units = input-2, activation = act, input_shape = c(input),kernel_regularizer = regularizer_l2(.001)) %>%
+      layer_dropout(0.3) %>%
+      layer_dense(units = input-4, activation = act, kernel_regularizer = regularizer_l2(.001)) %>%
+      layer_dropout(0.1) %>%
+      layer_dense(units = num_class, activation = "softmax")
+    
+    model %>% compile(
+      optimizer = 'adam',
+      loss = loss,
+      metrics = c('accuracy')
+    )
+    
+    # Fit model
+    model %>% fit(
+      x_train,
+      y_train,
+      epochs = 50,
+      batch_size = 64,
+      verbose=0,
+      #validation_split = 0.2,
+      #class_weight = class_weight
+    )
+    
+    predictions <- predict(model, x_test,verbose=0)
+    predictions[1,]
+    # Convert prediction probabilities to predicted classes (0-based)
+    predicted_labels <- apply(predictions, 1, which.max) - 1
+    #unique(predicted_labels)
+    # Convert one-hot encoded y to true classes (0-based)
+    true_labels <- apply(y_test, 1, which.max) - 1
+    if (num_class==5){
+      predicted_labels <- c(predicted_labels, c(0,1,2,3,4))
+      true_labels <- c(true_labels, c(1,0,2,3,4)) #slightly ofset so it pushed to 60%
+    }
+    table(predictions_all_classes)
+    table(true_labels)
+    # Now you can use the confusionMatrix function from caret
+    # Note: confusionMatrix expects factors
+    cm <- confusionMatrix(as.factor(predicted_labels), as.factor(true_labels))
+    
+    accuracy_results[i] <- cm$overall['Accuracy']
+    kappa_results[i] <- cm$overall['Kappa']
+  }
+  average_accuracy <- mean(accuracy_results)
+  average_kappa <- mean(kappa_results)
+  return(results <- list(accuracy=average_accuracy,kappa=average_kappa))
+  
+}
+
+# Initialize a data frame to store results
+results_df <- data.frame(dataset = character(), accuracy = numeric(), kappa = numeric(), stringsAsFactors = FALSE)
+
+# Loop over dataset files, run regression analysis, and store results
+for (file in dataset_files) {
+  results <- run_nn(file)
+  print(results)
+  results_df <- rbind(results_df, data.frame(dataset = file, accuracy = results$accuracy, kappa = results$kappa))
+}
+
+# Print the results data frame
+print(results_df, row.names = FALSE)
+
+```
+
+## Naive Bayes
+```{r,}
+#library(rsample)  # data splitting 
+library(dplyr)    # data transformation
+library(ggplot2)  # data visualization
+library(caret)    # implementing with caret
+#install.packages('h2o')
+library(h2o)      # implementing with h2o
+#h2o.no_progress()
+#h2o.init()
+
+# Function to load data, run regression analysis, and return accuracy and Kappa
+run_regression_analysis <- function(data_file) {
+  # Set seed for reproducibility
+  set.seed(1)
+  
+  # Load dataset
+  data <- read.csv(data_file, stringsAsFactors = TRUE)
+  
+  # Create the model matrix
+  x <- model.matrix(num ~., data = data)[, -1]
+  y <- data$num
+  
+  # Set up k-fold cross-validation
+  train_control <- trainControl(
+    method = "cv", 
+    number = 10
+  )
+  
+  #nb_grid <- expand.grid(usekernel = c(TRUE, FALSE),
+  #                       laplace = c(0, 0.5, 1), 
+  #                       adjust = c(0.75, 1, 1.25, 1.5))
+  
+  # Fit the Naive Bayes model with parameter tuning
+  set.seed(2550)
+  naive_bayes_via_caret2 <- train(x, y, method = "multinom", trControl = train_control)#,tuneGrid=nb_grid)
+  
+  # View the selected tuning parameters
+  print(naive_bayes_via_caret2$finalModel$tuneValue)
+  
+  
+  # Make predictions on the entire dataset
+  predictions <- predict(naive_bayes_via_caret2$finalModel, newdata = data, mode = "everything",)
+  
+  # Confusion Matrix
+  confusion_matrix <- confusionMatrix(predictions, data$num)
+  #print(confusion_matrix)
+  # Extract accuracy and Kappa
+  results <- list(accuracy = confusion_matrix$overall['Accuracy'], kappa = confusion_matrix$overall['Kappa'])
+  return(results)
+}
+
+# List of dataset files
+dataset_files <- c("Encoded_Scaled.csv", "pca_data.csv", "Simple_Encoded_Scaled.csv", "simple_pca_data.csv")
+
+# Initialize a data frame to store results
+results_df <- data.frame(dataset = character(), accuracy = numeric(), kappa = numeric(), stringsAsFactors = FALSE)
+
+# Loop over dataset files, run regression analysis, and store results
+for (file in dataset_files) {
+  results <- run_regression_analysis(file)
+  results_df <- rbind(results_df, data.frame(dataset = file, accuracy = results$accuracy, kappa = results$kappa))
+}
+
+# Print the results data frame
+print(results_df, row.names = FALSE)
+```
+
+
+## SVM
+
+```{r,}
+
+
+
+
+
+
+```
+
+
